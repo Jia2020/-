@@ -11,7 +11,6 @@ import {
   Heart
 } from 'lucide-react';
 import { QUESTIONS, RESULTS, ElementType, Option } from './constants';
-import { Character } from './components/Character';
 
 export default function App() {
   const [step, setStep] = useState<'intro' | 'quiz' | 'result'>('intro');
@@ -55,9 +54,11 @@ export default function App() {
       .sort((a, b) => counts[b] - counts[a]);
   }, [counts]);
 
-  const primaryElement = sortedResults[0];
-  const secondaryElement = sortedResults[1];
-  const isMixed = counts[primaryElement] - counts[secondaryElement] <= 1 && counts[secondaryElement] > 0;
+  const maxCount = counts[sortedResults[0]];
+  const primaryElements = sortedResults.filter(el => counts[el] === maxCount && counts[el] > 0);
+  
+  // Secondary elements are those with count exactly maxCount - 1 (if maxCount > 1)
+  const secondaryElements = sortedResults.filter(el => counts[el] === maxCount - 1 && counts[el] > 0 && !primaryElements.includes(el));
 
   return (
     <div className="min-h-screen flex flex-col items-center py-8 px-4 md:py-16">
@@ -216,65 +217,63 @@ export default function App() {
               </header>
 
               <div className="space-y-6">
-                {/* Main Result Card */}
-                <div className={`rounded-3xl p-8 border-2 ${RESULTS[primaryElement].color} shadow-sm space-y-6`}>
-                  {gender && (
-                    <div className="flex justify-center mb-6">
-                      <Character 
-                        gender={gender} 
-                        answers={answers} 
-                        className="w-48 h-64"
-                      />
-                    </div>
-                  )}
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        {React.createElement(RESULTS[primaryElement].icon, { className: "w-6 h-6" })}
-                        <h3 className="text-3xl font-serif font-bold">
-                          {RESULTS[primaryElement].title}
-                          <span className="text-lg ml-2 opacity-70">({RESULTS[primaryElement].organ})</span>
-                        </h3>
+                {/* Main Result Cards */}
+                {primaryElements.map((element, index) => (
+                  <div key={element} className={`rounded-3xl p-8 border-2 ${RESULTS[element].color} shadow-sm space-y-6 relative overflow-hidden`}>
+                    {primaryElements.length > 1 && (
+                      <div className="absolute top-4 right-4 bg-stone-900 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-widest">
+                        并列第一
                       </div>
-                      {isMixed && (
-                        <p className="text-sm font-medium opacity-80">
-                          兼夹体质：{RESULTS[secondaryElement].title}
+                    )}
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          {React.createElement(RESULTS[element].icon, { className: "w-6 h-6" })}
+                          <h3 className="text-3xl font-serif font-bold">
+                            {RESULTS[element].title}
+                            <span className="text-lg ml-2 opacity-70">({RESULTS[element].organ})</span>
+                          </h3>
+                        </div>
+                        {primaryElements.length === 1 && secondaryElements.length > 0 && (
+                          <p className="text-sm font-medium opacity-80">
+                            兼夹体质：{secondaryElements.map(el => RESULTS[el].title).join('、')}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-4xl font-serif italic opacity-20">
+                          {RESULTS[element].element}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2 pt-4 border-t border-current/10">
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-widest opacity-60">体质特点</h4>
+                        <p className="text-stone-800 leading-relaxed">
+                          {RESULTS[element].characteristics}
                         </p>
-                      )}
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-widest opacity-60">调理方向</h4>
+                        <p className="text-stone-800 leading-relaxed">
+                          {RESULTS[element].direction}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-4xl font-serif italic opacity-20">
-                        {RESULTS[primaryElement].element}
+
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-widest opacity-60">适合香材</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {RESULTS[element].incense.map(item => (
+                          <span key={item} className="px-3 py-1 rounded-full bg-white/50 border border-current/20 text-sm">
+                            {item}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
-
-                  <div className="grid gap-6 md:grid-cols-2 pt-4 border-t border-current/10">
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-bold uppercase tracking-widest opacity-60">体质特点</h4>
-                      <p className="text-stone-800 leading-relaxed">
-                        {RESULTS[primaryElement].characteristics}
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-bold uppercase tracking-widest opacity-60">调理方向</h4>
-                      <p className="text-stone-800 leading-relaxed">
-                        {RESULTS[primaryElement].direction}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-widest opacity-60">适合香材</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {RESULTS[primaryElement].incense.map(item => (
-                        <span key={item} className="px-3 py-1 rounded-full bg-white/50 border border-current/20 text-sm">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                ))}
 
                 {/* Score Breakdown */}
                 <div className="glass rounded-3xl p-8 space-y-6">
