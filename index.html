@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <script>
+      // Fix for "Uncaught TypeError: Cannot set property fetch of #<Window> which has only a getter"
+      // This happens in some sandboxed environments where fetch is a read-only getter.
+      (function() {
+        try {
+          if (typeof window.fetch === 'undefined') return;
+          
+          const descriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
+          
+          // If fetch is configurable, we can redefine it with a setter to ignore overrides
+          if (descriptor && descriptor.configurable) {
+            const nativeFetch = window.fetch;
+            Object.defineProperty(window, 'fetch', {
+              get: function() { return nativeFetch; },
+              set: function() { /* Ignore attempts to overwrite fetch */ },
+              configurable: true,
+              enumerable: true
+            });
+          } 
+          
+          // Additionally, some libraries (like formdata-polyfill) use 'global', 'self' or 'globalThis'
+          // to try and override fetch. We can provide a Proxy for these to intercept the assignment.
+          const proxyHandler = {
+            get(target, prop) {
+              const value = target[prop];
+              if (typeof value === 'function') {
+                // Some native functions must be bound to the original target
+                try {
+                  return value.bind(target);
+                } catch (e) {
+                  return value;
+                }
+              }
+              return value;
+            },
+            set(target, prop, value) {
+              if (prop === 'fetch') {
+                console.warn('Intercepted attempt to overwrite fetch');
+                return true; // Claim success but do nothing
+              }
+              try {
+                target[prop] = value;
+              } catch (e) {
+                console.warn(`Failed to set property ${prop} on target`, e);
+              }
+              return true;
+            },
+            defineProperty(target, prop, descriptor) {
+              if (prop === 'fetch') {
+                console.warn('Intercepted attempt to defineProperty fetch');
+                return true;
+              }
+              return Object.defineProperty(target, prop, descriptor);
+            },
+            deleteProperty(target, prop) {
+              if (prop === 'fetch') return true;
+              return delete target[prop];
+            }
+          };
+
+          // Try to apply the fix to the prototype as well
+          try {
+            const proto = Object.getPrototypeOf(window);
+            if (proto) {
+              const protoDesc = Object.getOwnPropertyDescriptor(proto, 'fetch');
+              if (protoDesc && protoDesc.configurable) {
+                const nativeProtoFetch = proto.fetch;
+                Object.defineProperty(proto, 'fetch', {
+                  get: function() { return nativeProtoFetch; },
+                  set: function() { /* Ignore */ },
+                  configurable: true,
+                  enumerable: true
+                });
+              }
+            }
+          } catch (e) {
+            // Ignore
+          }
+
+          const globalProxy = new Proxy(window, proxyHandler);
+
+          // Define 'global' if it doesn't exist or is configurable
+          if (typeof window.global === 'undefined') {
+            window.global = globalProxy;
+          }
+          
+          // Try to handle 'self' and 'globalThis' if they are configurable
+          ['self', 'globalThis'].forEach(key => {
+            try {
+              const desc = Object.getOwnPropertyDescriptor(window, key);
+              if (desc && desc.configurable) {
+                Object.defineProperty(window, key, {
+                  get: function() { return globalProxy; },
+                  configurable: true,
+                  enumerable: true
+                });
+              }
+            } catch (e) {
+              // Ignore
+            }
+          });
+        } catch (e) {
+          // Ignore errors during re-definition
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
